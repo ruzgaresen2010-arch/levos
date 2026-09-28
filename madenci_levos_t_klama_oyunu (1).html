@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madenci Levos - Tıklama Oyunu</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #60a5fa;
+        }
+
+        /* Click Animations */
+        .click-target {
+            transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .click-target:active {
+            transform: scale(0.92) rotate(-2deg);
+        }
+
+        /* Floating Score Effect */
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-80px) scale(1.3);
+            }
+        }
+        .floating-text {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 0.9s ease-out forwards;
+            font-weight: 900;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        /* Glow Animations */
+        @keyframes mistisGlow {
+            0%, 100% { filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.6)); }
+            50% { filter: drop-shadow(0 0 30px rgba(217, 70, 239, 0.9)); }
+        }
+        .mistis-glow {
+            animation: mistisGlow 2.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-purple-500 selection:text-white">
+
+    <!-- Top Header & Player Info Bar -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-xl">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <i class="fa-solid font-black text-xl text-white fa-pickaxe">⛏️</i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-purple-400 to-pink-500">
+                        MADENCİ LEVOS
+                    </h1>
+                    <p class="text-xs text-slate-400 font-medium">Tıklama & Liderlik Macerası</p>
+                </div>
+            </div>
+
+            <!-- Player Level & XP Bar -->
+            <div class="flex-1 max-w-md mx-2">
+                <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span class="text-purple-400 flex items-center gap-1">
+                        <i class="fa-solid fa-crown text-amber-400"></i> Seviye <span id="player-level" class="text-white text-sm font-bold">1</span>
+                    </span>
+                    <span id="level-title" class="text-amber-300 font-bold">Çaylak Madenci</span>
+                    <span class="text-slate-400"><span id="player-xp">0</span> / <span id="next-xp">100</span> XP</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700/50 shadow-inner">
+                    <div id="xp-bar-fill" class="bg-gradient-to-r from-purple-600 to-pink-500 h-full rounded-full transition-all duration-300 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Controls & Sound Toggle -->
+            <div class="flex items-center space-x-2">
+                <button id="btn-sound" onclick="toggleSound()" class="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 transition-all">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-emerald-400"></i>
+                </button>
+                <button onclick="resetGamePrompt()" class="p-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/50 text-red-400 rounded-xl transition-all" title="Oyunu Sıfırla">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+
+        <!-- LEFT COLUMN: Mining Click Area & Main Stats -->
+        <section class="lg:col-span-5 flex flex-col items-center justify-between bg-slate-900/40 rounded-3xl border border-slate-800/80 p-6 relative overflow-hidden shadow-2xl backdrop-blur-sm">
+            
+            <!-- Ambient Light Effect -->
+            <div class="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Score Cards -->
+            <div class="w-full space-y-3 z-10">
+                <!-- Gold Display -->
+                <div class="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between shadow-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-2xl">
+                            🪙
+                        </div>
+                        <div>
+                            <p class="text-xs text-amber-400/80 uppercase tracking-wider font-semibold">Mevcut Altın</p>
+                            <p id="gold-count" class="text-3xl font-black text-amber-400 tracking-tight">0</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-slate-400">Saniye Başına</p>
+                        <p class="text-sm font-bold text-emerald-400">+<span id="gps-count">0</span> /sn</p>
+                    </div>
+                </div>
+
+                <!-- Stats summary pill -->
+                <div class="flex justify-between items-center text-xs text-slate-400 bg-slate-950/60 rounded-xl px-4 py-2 border border-slate-800">
+                    <span>Tıklama Gücü: <strong id="gpc-count" class="text-purple-400">1</strong></span>
+                    <span>Sıralamanız: <strong id="header-rank" class="text-amber-400">#--</strong></span>
+                </div>
+            </div>
+
+            <!-- Clickable Character / Pickaxe Section -->
+            <div id="click-area" class="relative my-8 z-10 flex flex-col items-center cursor-pointer group select-none">
+                
+                <!-- Character Glow Circle -->
+                <div class="w-64 h-64 md:w-72 md:h-72 rounded-full bg-gradient-to-b from-purple-600/30 via-slate-800/50 to-amber-500/20 flex items-center justify-center p-3 relative group-hover:scale-105 transition-all duration-300 shadow-2xl">
+                    
+                    <!-- Avatar Image (Changes with Level) -->
+                    <div class="w-full h-full rounded-full overflow-hidden border-4 border-amber-400/60 shadow-inner bg-slate-950 relative">
+                        <img id="character-img" src="levbos.jpg" onerror="this.src='https://placehold.co/300x300/2e1065/e9d5ff?text=Levos+Madenci'" alt="Madenci Levos" class="w-full h-full object-cover click-target mistis-glow">
+                    </div>
+
+                    <!-- Floating Action Pickaxe overlay icon -->
+                    <div class="absolute -bottom-2 -right-2 bg-gradient-to-r from-amber-500 to-amber-600 w-14 h-14 rounded-2xl border-2 border-amber-300 flex items-center justify-center shadow-xl text-2xl group-hover:rotate-12 transition-transform">
+                        ⛏️
+                    </div>
+                </div>
+
+                <p class="mt-4 text-xs font-semibold text-slate-400 tracking-wider uppercase group-hover:text-amber-300 transition-colors">
+                    <i class="fa-solid fa-hand-pointer animate-bounce mr-1"></i> Maden Kazanmak İçin Tıkla!
+                </p>
+            </div>
+
+            <!-- Quick Info / Level Threshold -->
+            <div class="w-full text-center z-10 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <p id="next-evolution-text" class="text-xs text-slate-400">
+                    Bir sonraki evrim: <span class="text-amber-400 font-bold">Seviye 5 (lebos.jpg)</span>
+                </p>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Tabs (Store & Leaderboard) -->
+        <section class="lg:col-span-7 flex flex-col bg-slate-900/40 rounded-3xl border border-slate-800/80 p-4 md:p-6 shadow-2xl backdrop-blur-sm">
+            
+            <!-- Navigation Tabs -->
+            <div class="flex space-x-2 border-b border-slate-800 pb-4 mb-4">
+                <button id="tab-btn-shop" onclick="switchTab('shop')" class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/20 transition-all">
+                    <i class="fa-solid fa-store"></i> Maden Mağazası
+                </button>
+                <button id="tab-btn-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-trophy text-amber-400"></i> Liderlik Sıralaması
+                </button>
+            </div>
+
+            <!-- TAB 1: SHOP CONTENT -->
+            <div id="tab-content-shop" class="space-y-4 overflow-y-auto max-h-[580px] pr-1">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Geliştirmeler ve Yardımcılar</h2>
+                <div id="shop-items-container" class="grid grid-cols-1 gap-3">
+                    <!-- Shop items generated dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- TAB 2: LEADERBOARD CONTENT -->
+            <div id="tab-content-leaderboard" class="hidden space-y-4">
+                
+                <!-- Player's Rank Highlight Card -->
+                <div class="bg-gradient-to-r from-amber-500/20 via-purple-600/20 to-indigo-600/20 border border-amber-500/40 rounded-2xl p-4 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg">
+                            #<span id="player-rank-display">--</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-white">Sizin Dereceniz (Levos)</h3>
+                                <span class="bg-purple-900/60 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-500/30">SİZ</span>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-0.5">Mevcut Skor: <span id="player-rank-score" class="text-amber-400 font-bold">0</span> Altın</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="rank-status" class="text-xs font-semibold text-emerald-400">Sıralama Canlı</span>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Table -->
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-inner">
+                    <div class="p-3 bg-slate-950/60 border-b border-slate-800 flex justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        <span># Madenci</span>
+                        <span>Maden Skoru</span>
+                    </div>
+                    
+                    <div id="leaderboard-list" class="divide-y divide-slate-800/60 max-h-[420px] overflow-y-auto">
+                        <!-- Dynamic Leaderboard list populated via JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+        <p>Madenci Levos © 2026 - Tüm Hakları Saklıdır. Tıkla, Geliş ve Liderliği Ele Geçir!</p>
+    </footer>
+
+    <!-- Notification Message Modal / Alert Replacer -->
+    <div id="msg-box" class="fixed bottom-6 right-6 bg-slate-900 border border-purple-500/50 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 z-50">
+        <span id="msg-icon" class="text-xl">✨</span>
+        <span id="msg-text" class="text-sm font-semibold">Bildirim mesajı</span>
+    </div>
+
+    <script>
+        // ==========================================
+        // GAME STATE & CONFIGURATION
+        // ==========================================
+        let gameState = {
+            gold: 0,
+            totalGoldEarned: 0,
+            clickPower: 1,
+            gps: 0, // Gold Per Second
+            xp: 0,
+            level: 1,
+            soundEnabled: true,
+            upgrades: {
+                cirak: 0,
+                super: 0,
+                gizli: 0,
+                mistis: 0
+            }
+        };
+
+        // SHOP ITEMS CONFIGURATION WITH CUSTOM IMAGES
+        const shopItems = [
+            {
+                id: 'cirak',
+                title: 'Çırak Kazma',
+                desc: 'Tıklama başına +2 Altın kazandırır.',
+                baseCost: 20,
+                costMult: 1.5,
+                type: 'click',
+                power: 2,
+                image: 'WhatsApp Image 2026-09-22 at 15.01.25.jpeg'
+            },
+            {
+                id: 'super',
+                title: 'Süper Madenci',
+                desc: 'Saniyede +5 Otomatik Altın üretir.',
+                baseCost: 100,
+                costMult: 1.6,
+                type: 'auto',
+                power: 5,
+                image: 'WhatsApp Image 2026-09-26 at 20.02.56.jpeg'
+            },
+            {
+                id: 'gizli',
+                title: 'Gizli Maden Ustası',
+                desc: 'Saniyede +25 Otomatik Altın üretir.',
+                baseCost: 600,
+                costMult: 1.7,
+                type: 'auto',
+                power: 25,
+                image: 'WhatsApp Image 2026-09-26 at 20.02.57.jpeg'
+            },
+            {
+                id: 'mistis',
+                title: 'MİŞTİŞ (Efsanevi Güç)',
+                desc: 'Hem Tıklamaya +50 hem Saniyeye +100 Güç verir!',
+                baseCost: 2500,
+                costMult: 1.85,
+                type: 'hybrid',
+                clickPower: 50,
+                autoPower: 100,
+                image: 'Ekran görüntüsü 2026-09-22 211616.jpg'
+            }
+        ];
+
+        // CHARACTER EVOLUTION TIERS
+        const characterEvolutions = [
+            { level: 1, img: 'levbos.jpg', name: 'Çaylak Levos' },
+            { level: 5, img: 'lebos.jpg', name: 'Tecrübeli Levos' },
+            { level: 15, img: 'doruk yamankafa.png', name: 'Doruk Yamankafa' },
+            { level: 30, img: 'doruk yamankafa2.png', name: 'Süper Yamankafa' },
+            { level: 50, img: 'doruk yamankafa3.png', name: 'Efsanevi Ultra Doruk' }
+        ];
+
+        // NPC LEADERBOARD BOT PLAYERS
+        let leaderboardBots = [
+            { name: 'MİŞTİŞ Lordu', score: 150000, img: 'Ekran görüntüsü 2026-09-22 211616.jpg', title: 'Efsanevi' },
+            { name: 'Mega Doruk', score: 75000, img: 'WhatsApp Image 2026-09-26 at 20.02.56.jpeg', title: 'Üstat' },
+            { name: 'Sessiz Madenci', score: 25000, img: 'WhatsApp Image 2026-09-26 at 20.02.57.jpeg', title: 'Gizemli' },
+            { name: 'Kazma Üstadı', score: 8000, img: 'WhatsApp Image 2026-09-22 at 15.01.25.jpeg', title: 'Usta' },
+            { name: 'Hızlı Kütle', score: 2500, img: 'lebos.jpg', title: 'Çırak' },
+            { name: 'Acemi Madenci', score: 300, img: 'levbos.jpg', title: 'Yeni Başlayan' }
+        ];
+
+        // ==========================================
+        // WEB AUDIO API SOUND SYSTEM
+        // ==========================================
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(640, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'buy') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'levelup') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                    osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                }
+            } catch(e) {
+                console.log('Audio play error:', e);
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            if (gameState.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-emerald-400';
+                showMessage('🔊 Sesler Açıldı', '✨');
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                showMessage('🔇 Sesler Kapatıldı', '🔇');
+            }
+            saveGame();
+        }
+
+        // ==========================================
+        // GAMEPLAY CORE LOGIC
+        // ==========================================
+        function calculateStats() {
+            let cp = 1;
+            let autoGps = 0;
+
+            shopItems.forEach(item => {
+                const count = gameState.upgrades[item.id] || 0;
+                if (item.type === 'click') {
+                    cp += count * item.power;
+                } else if (item.type === 'auto') {
+                    autoGps += count * item.power;
+                } else if (item.type === 'hybrid') {
+                    cp += count * item.clickPower;
+                    autoGps += count * item.autoPower;
+                }
+            });
+
+            gameState.clickPower = cp;
+            gameState.gps = autoGps;
+
+            updateUI();
+        }
+
+        function getUpgradeCost(item) {
+            const count = gameState.upgrades[item.id] || 0;
+            return Math.floor(item.baseCost * Math.pow(item.costMult, count));
+        }
+
+        function handleMiningClick(event) {
+            addGold(gameState.clickPower);
+            addXP(1);
+            playSound('click');
+
+            // Floating Number Effect
+            createFloatingText(event, `+${gameState.clickPower}`);
+        }
+
+        function addGold(amount) {
+            gameState.gold += amount;
+            gameState.totalGoldEarned += amount;
+            updateUI();
+            updateLeaderboard();
+        }
+
+        function addXP(amount) {
+            gameState.xp += amount;
+            const neededXP = gameState.level * 100;
+            
+            if (gameState.xp >= neededXP) {
+                gameState.xp -= neededXP;
+                gameState.level += 1;
+                playSound('levelup');
+                showMessage(`TEBRİKLER! Seviye ${gameState.level} Oldunuz! 🎉`, '⭐');
+            }
+            updateUI();
+        }
+
+        function getCharacterForLevel(lvl) {
+            let current = characterEvolutions[0];
+            for (let evo of characterEvolutions) {
+                if (lvl >= evo.level) {
+                    current = evo;
+                }
+            }
+            return current;
+        }
+
+        function getNextEvolution(lvl) {
+            for (let evo of characterEvolutions) {
+                if (evo.level > lvl) {
+                    return evo;
+                }
+            }
+            return null;
+        }
+
+        function buyUpgrade(itemId) {
+            const item = shopItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            const cost = getUpgradeCost(item);
+            if (gameState.gold >= cost) {
+                gameState.gold -= cost;
+                gameState.upgrades[itemId] = (gameState.upgrades[itemId] || 0) + 1;
+                playSound('buy');
+                showMessage(`${item.title} satın alındı!`, '🛒');
+                calculateStats();
+                saveGame();
+            } else {
+                showMessage('Yetersiz altın!', '⚠️');
+            }
+        }
+
+        // ==========================================
+        // UI RENDERING & UPDATES
+        // ==========================================
+        function updateUI() {
+            document.getElementById('gold-count').innerText = Math.floor(gameState.gold).toLocaleString('tr-TR');
+            document.getElementById('gps-count').innerText = gameState.gps.toLocaleString('tr-TR');
+            document.getElementById('gpc-count').innerText = gameState.clickPower.toLocaleString('tr-TR');
+
+            // Level & XP
+            document.getElementById('player-level').innerText = gameState.level;
+            document.getElementById('player-xp').innerText = gameState.xp;
+            const neededXP = gameState.level * 100;
+            document.getElementById('next-xp').innerText = neededXP;
+            const xpPercent = Math.min(100, (gameState.xp / neededXP) * 100);
+            document.getElementById('xp-bar-fill').style.width = `${xpPercent}%`;
+
+            // Avatar & Level Title
+            const evo = getCharacterForLevel(gameState.level);
+            document.getElementById('level-title').innerText = evo.name;
+            const imgElem = document.getElementById('character-img');
+            if (!imgElem.src.includes(evo.img)) {
+                imgElem.src = evo.img;
+            }
+
+            // Next evolution hint
+            const nextEvo = getNextEvolution(gameState.level);
+            const nextText = document.getElementById('next-evolution-text');
+            if (nextEvo) {
+                nextText.innerHTML = `Bir sonraki evrim: <span class="text-amber-400 font-bold">Seviye ${nextEvo.level} (${nextEvo.name})</span>`;
+            } else {
+                nextText.innerHTML = `<span class="text-emerald-400 font-bold">Maksimum Evrim Seviyesine Ulaştınız! 🚀</span>`;
+            }
+
+            renderShop();
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-items-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            shopItems.forEach(item => {
+                const count = gameState.upgrades[item.id] || 0;
+                const cost = getUpgradeCost(item);
+                const canAfford = gameState.gold >= cost;
+
+                const card = document.createElement('div');
+                card.className = `bg-slate-900/90 border ${canAfford ? 'border-purple-500/40 hover:border-purple-500' : 'border-slate-800 opacity-85'} rounded-2xl p-3.5 flex items-center justify-between gap-3 transition-all duration-200 shadow-md`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-14 h-14 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex-shrink-0 relative">
+                            <img src="${item.image}" onerror="this.src='https://placehold.co/100x100/1e293b/ffffff?text=${encodeURIComponent(item.title)}'" class="w-full h-full object-cover">
+                            <span class="absolute bottom-0 right-0 bg-purple-900/90 text-purple-200 text-[10px] font-black px-1.5 py-0.5 rounded-tl-md">x${count}</span>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-white flex items-center gap-1.5">
+                                ${item.title}
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5 line-clamp-1">${item.desc}</p>
+                            <p class="text-xs text-amber-400 font-bold mt-1">🪙 ${cost.toLocaleString('tr-TR')} Altın</p>
+                        </div>
+                    </div>
+                    <button onclick="buyUpgrade('${item.id}')" ${!canAfford ? 'disabled' : ''} class="px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex-shrink-0 ${canAfford ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 hover:brightness-110 shadow-lg shadow-amber-500/20 active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">
+                        Satın Al
+                    </button>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // ==========================================
+        // DYNAMIC LEADERBOARD SYSTEM
+        // ==========================================
+        function updateLeaderboard() {
+            const evo = getCharacterForLevel(gameState.level);
+            
+            // Build player object
+            const playerEntry = {
+                isPlayer: true,
+                name: `Siz (Levos)`,
+                score: Math.floor(gameState.totalGoldEarned),
+                img: evo.img,
+                title: evo.name
+            };
+
+            // Combine Bots + Player and sort descending by score
+            let allEntries = [...leaderboardBots, playerEntry];
+            allEntries.sort((a, b) => b.score - a.score);
+
+            // Find player rank
+            const playerIndex = allEntries.findIndex(e => e.isPlayer);
+            const playerRank = playerIndex + 1;
+
+            document.getElementById('player-rank-display').innerText = playerRank;
+            document.getElementById('header-rank').innerText = `#${playerRank}`;
+            document.getElementById('player-rank-score').innerText = playerEntry.score.toLocaleString('tr-TR');
+
+            const listContainer = document.getElementById('leaderboard-list');
+            if (!listContainer) return;
+
+            listContainer.innerHTML = '';
+
+            allEntries.forEach((entry, idx) => {
+                const rank = idx + 1;
+                const isMe = entry.isPlayer;
+
+                let rankBadgeClass = 'bg-slate-800 text-slate-400';
+                if (rank === 1) rankBadgeClass = 'bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/30';
+                if (rank === 2) rankBadgeClass = 'bg-slate-300 text-slate-950 font-black';
+                if (rank === 3) rankBadgeClass = 'bg-amber-700 text-white font-black';
+
+                const row = document.createElement('div');
+                row.className = `p-3 flex items-center justify-between transition-colors ${isMe ? 'bg-purple-950/40 border-l-4 border-purple-500' : 'hover:bg-slate-800/40'}`;
+
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-7 h-7 rounded-lg ${rankBadgeClass} flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            ${rank <= 3 ? (rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉') : rank}
+                        </div>
+                        <div class="w-9 h-9 rounded-xl overflow-hidden bg-slate-950 border border-slate-700 flex-shrink-0">
+                            <img src="${entry.img}" onerror="this.src='https://placehold.co/100x100/1e293b/ffffff?text=Bot'" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-sm ${isMe ? 'text-purple-300' : 'text-slate-200'}">${entry.name}</span>
+                                ${isMe ? '<span class="bg-purple-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded">SİZ</span>' : ''}
+                            </div>
+                            <span class="text-[11px] text-slate-400">${entry.title}</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-extrabold text-sm ${isMe ? 'text-amber-400' : 'text-slate-300'}">${entry.score.toLocaleString('tr-TR')}</span>
+                        <span class="text-[10px] text-slate-500 block">Altın</span>
+                    </div>
+                `;
+
+                listContainer.appendChild(row);
+            });
+        }
+
+        // ==========================================
+        // TAB SWITCHING LOGIC
+        // ==========================================
+        function switchTab(tab) {
+            const shopTab = document.getElementById('tab-content-shop');
+            const shopBtn = document.getElementById('tab-btn-shop');
+            const rankTab = document.getElementById('tab-content-leaderboard');
+            const rankBtn = document.getElementById('tab-btn-leaderboard');
+
+            if (tab === 'shop') {
+                shopTab.classList.remove('hidden');
+                rankTab.classList.add('hidden');
+
+                shopBtn.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/20 transition-all";
+                rankBtn.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 transition-all";
+            } else {
+                shopTab.classList.add('hidden');
+                rankTab.classList.remove('hidden');
+
+                rankBtn.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/20 transition-all";
+                shopBtn.className = "flex-1 py-3 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 transition-all";
+            }
+        }
+
+        // Floating click text generator
+        function createFloatingText(event, text) {
+            const area = document.getElementById('click-area');
+            const rect = area.getBoundingClientRect();
+
+            const el = document.createElement('div');
+            el.className = 'floating-text text-amber-300 text-2xl';
+            el.innerText = text;
+
+            // Calculate offset inside click container
+            const x = event.clientX - rect.left - 20 + (Math.random() * 30 - 15);
+            const y = event.clientY - rect.top - 20;
+
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+
+            area.appendChild(el);
+
+            setTimeout(() => {
+                el.remove();
+            }, 900);
+        }
+
+        // Custom Toast Notification Replacement
+        function showMessage(msg, icon = '✨') {
+            const box = document.getElementById('msg-box');
+            document.getElementById('msg-text').innerText = msg;
+            document.getElementById('msg-icon').innerText = icon;
+
+            box.classList.remove('translate-y-24', 'opacity-0');
+            box.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                box.classList.remove('translate-y-0', 'opacity-100');
+                box.classList.add('translate-y-24', 'opacity-0');
+            }, 2500);
+        }
+
+        // RESET GAME FUNCTION
+        function resetGamePrompt() {
+            if (confirm('Tüm ilerlemeniz sıfırlanacak! Emin misiniz?')) {
+                localStorage.removeItem('levos_miner_save');
+                location.reload();
+            }
+        }
+
+        // ==========================================
+        // SAVE / LOAD SYSTEM
+        // ==========================================
+        function saveGame() {
+            try {
+                localStorage.setItem('levos_miner_save', JSON.stringify(gameState));
+            } catch(e) {
+                console.error('Save failed:', e);
+            }
+        }
+
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem('levos_miner_save');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    gameState = { ...gameState, ...parsed };
+                }
+            } catch(e) {
+                console.error('Load failed:', e);
+            }
+            calculateStats();
+            updateLeaderboard();
+        }
+
+        // ==========================================
+        // MAIN GAME LOOP (1 SECOND TICK)
+        // ==========================================
+        window.onload = function() {
+            loadGame();
+
+            // Register Click Handler
+            document.getElementById('click-area').addEventListener('click', handleMiningClick);
+
+            // Passive Income Tick (every 1 sec)
+            setInterval(() => {
+                if (gameState.gps > 0) {
+                    addGold(gameState.gps);
+                }
+            }, 1000);
+
+            // Auto Save Tick (every 5 sec)
+            setInterval(() => {
+                saveGame();
+            }, 5000);
+
+            // Dynamic Bot Progression (Slow bot growth for competitive feel)
+            setInterval(() => {
+                leaderboardBots.forEach(bot => {
+                    bot.score += Math.floor(Math.random() * 15) + 5;
+                });
+                updateLeaderboard();
+            }, 4000);
+        };
+    </script>
+</body>
+</html>
